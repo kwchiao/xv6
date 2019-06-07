@@ -1,0 +1,270 @@
+fs.c:37:  memmove(sb, bp->data, sizeof(*sb));
+fs.c:48:  memset(bp->data, 0, BSIZE);
+fs.c:67:      if((bp->data[bi/8] & m) == 0){  // Is block free?
+fs.c:68:        bp->data[bi/8] |= m;  // Mark block in use.
+fs.c:91:  if((bp->data[bi/8] & m) == 0)
+fs.c:93:  bp->data[bi/8] &= ~m;
+fs.c:113:// not stored on disk: ip->ref and ip->valid.
+fs.c:124://   is free if ip->ref is zero. Otherwise ip->ref tracks
+fs.c:131://   cache entry is only correct when ip->valid is 1.
+fs.c:133://   the disk and sets ip->valid, while iput() clears
+fs.c:134://   ip->valid if ip->ref has fallen to zero.
+fs.c:143://   ... examine and modify ip->xxx ...
+fs.c:151:// pathname lookup. iget() increments ip->ref so that the inode
+fs.c:159:// entries. Since ip->ref indicates whether an entry is free,
+fs.c:160:// and ip->dev and ip->inum indicate which i-node an entry
+fs.c:163:// An ip->lock sleep-lock protects all ip-> fields other than ref,
+fs.c:164:// dev, and inum.  One must hold ip->lock in order to
+fs.c:165:// read or write that inode's ip->valid, ip->size, ip->type, &c.
+fs.c:204:    dip = (struct dinode*)bp->data + inum%IPB;
+fs.c:205:    if(dip->type == 0){  // a free inode
+fs.c:207:      dip->type = type;
+fs.c:218:// Must be called after every change to an ip->xxx field
+fs.c:220:// Caller must hold ip->lock.
+fs.c:227:  bp = bread(ip->dev, IBLOCK(ip->inum, sb));
+fs.c:228:  dip = (struct dinode*)bp->data + ip->inum%IPB;
+fs.c:229:  dip->type = ip->type;
+fs.c:230:  dip->major = ip->major;
+fs.c:231:  dip->minor = ip->minor;
+fs.c:232:  dip->nlink = ip->nlink;
+fs.c:233:  dip->size = ip->size;
+fs.c:234:  memmove(dip->addrs, ip->addrs, sizeof(ip->addrs));
+fs.c:252:    if(ip->ref > 0 && ip->dev == dev && ip->inum == inum){
+fs.c:253:      ip->ref++;
+fs.c:257:    if(empty == 0 && ip->ref == 0)    // Remember empty slot.
+fs.c:266:  ip->dev = dev;
+fs.c:267:  ip->inum = inum;
+fs.c:268:  ip->ref = 1;
+fs.c:269:  ip->valid = 0;
+fs.c:281:  ip->ref++;
+fs.c:294:  if(ip == 0 || ip->ref < 1)
+fs.c:297:  acquiresleep(&ip->lock);
+fs.c:299:  if(ip->valid == 0){
+fs.c:300:    bp = bread(ip->dev, IBLOCK(ip->inum, sb));
+fs.c:301:    dip = (struct dinode*)bp->data + ip->inum%IPB;
+fs.c:302:    ip->type = dip->type;
+fs.c:303:    ip->major = dip->major;
+fs.c:304:    ip->minor = dip->minor;
+fs.c:305:    ip->nlink = dip->nlink;
+fs.c:306:    ip->size = dip->size;
+fs.c:307:    memmove(ip->addrs, dip->addrs, sizeof(ip->addrs));
+fs.c:309:    ip->valid = 1;
+fs.c:310:    if(ip->type == 0)
+fs.c:319:  if(ip == 0 || !holdingsleep(&ip->lock) || ip->ref < 1)
+fs.c:322:  releasesleep(&ip->lock);
+fs.c:335:  acquiresleep(&ip->lock);
+fs.c:336:  if(ip->valid && ip->nlink == 0){
+fs.c:338:    int r = ip->ref;
+fs.c:343:      ip->type = 0;
+fs.c:345:      ip->valid = 0;
+fs.c:348:  releasesleep(&ip->lock);
+fs.c:351:  ip->ref--;
+fs.c:368:// are listed in ip->addrs[].  The next NINDIRECT blocks are
+fs.c:369:// listed in block ip->addrs[NDIRECT].
+fs.c:380:    if((addr = ip->addrs[bn]) == 0)
+fs.c:381:      ip->addrs[bn] = addr = balloc(ip->dev);
+fs.c:388:    if((addr = ip->addrs[NDIRECT]) == 0)
+fs.c:389:      ip->addrs[NDIRECT] = addr = balloc(ip->dev);
+fs.c:390:    bp = bread(ip->dev, addr);
+fs.c:391:    a = (uint*)bp->data;
+fs.c:393:      a[bn] = addr = balloc(ip->dev);
+fs.c:416:    if(ip->addrs[i]){
+fs.c:417:      bfree(ip->dev, ip->addrs[i]);
+fs.c:418:      ip->addrs[i] = 0;
+fs.c:422:  if(ip->addrs[NDIRECT]){
+fs.c:423:    bp = bread(ip->dev, ip->addrs[NDIRECT]);
+fs.c:424:    a = (uint*)bp->data;
+fs.c:427:        bfree(ip->dev, a[j]);
+fs.c:430:    bfree(ip->dev, ip->addrs[NDIRECT]);
+fs.c:431:    ip->addrs[NDIRECT] = 0;
+fs.c:434:  ip->size = 0;
+fs.c:439:// Caller must hold ip->lock.
+fs.c:443:  st->dev = ip->dev;
+fs.c:444:  st->ino = ip->inum;
+fs.c:445:  st->type = ip->type;
+fs.c:446:  st->nlink = ip->nlink;
+fs.c:447:  st->size = ip->size;
+fs.c:452:// Caller must hold ip->lock.
+fs.c:459:  if(ip->type == T_DEV){
+fs.c:460:    if(ip->major < 0 || ip->major >= NDEV || !devsw[ip->major].read)
+fs.c:462:    return devsw[ip->major].read(ip, dst, n);
+fs.c:465:  if(off > ip->size || off + n < off)
+fs.c:467:  if(off + n > ip->size)
+fs.c:468:    n = ip->size - off;
+fs.c:471:    bp = bread(ip->dev, bmap(ip, off/BSIZE));
+fs.c:473:    memmove(dst, bp->data + off%BSIZE, m);
+fs.c:481:// Caller must hold ip->lock.
+fs.c:488:  if(ip->type == T_DEV){
+fs.c:489:    if(ip->major < 0 || ip->major >= NDEV || !devsw[ip->major].write)
+fs.c:491:    return devsw[ip->major].write(ip, src, n);
+fs.c:494:  if(off > ip->size || off + n < off)
+fs.c:500:    bp = bread(ip->dev, bmap(ip, off/BSIZE));
+fs.c:502:    memmove(bp->data + off%BSIZE, src, m);
+fs.c:507:  if(n > 0 && off > ip->size){
+fs.c:508:    ip->size = off;
+fs.c:531:  if(dp->type != T_DIR)
+fs.c:534:  for(off = 0; off < dp->size; off += sizeof(de)){
+fs.c:544:      return iget(dp->dev, inum);
+fs.c:566:  for(off = 0; off < dp->size; off += sizeof(de)){
+fs.c:637:    if(ip->type != T_DIR){
+log.c:210://   modify bp->data[]
+ls.c:13:  for(p=path+strlen(path); p >= path && *p != '/'; p--)
+mp.c:61:    if((mp = mpsearch1(p-1024, 1024)))
+mp.c:78:  if((mp = mpsearch()) == 0 || mp->physaddr == 0)
+mp.c:80:  conf = (struct mpconf*) P2V((uint) mp->physaddr);
+mp.c:133:  if(mp->imcrp){
+pipe.c:33:  p->readopen = 1;
+pipe.c:34:  p->writeopen = 1;
+pipe.c:35:  p->nwrite = 0;
+pipe.c:36:  p->nread = 0;
+pipe.c:37:  initlock(&p->lock, "pipe");
+pipe.c:62:  acquire(&p->lock);
+pipe.c:64:    p->writeopen = 0;
+pipe.c:65:    wakeup(&p->nread);
+pipe.c:67:    p->readopen = 0;
+pipe.c:68:    wakeup(&p->nwrite);
+pipe.c:70:  if(p->readopen == 0 && p->writeopen == 0){
+pipe.c:71:    release(&p->lock);
+pipe.c:74:    release(&p->lock);
+pipe.c:83:  acquire(&p->lock);
+pipe.c:85:    while(p->nwrite == p->nread + PIPESIZE){  //DOC: pipewrite-full
+pipe.c:86:      if(p->readopen == 0 || myproc()->killed){
+pipe.c:87:        release(&p->lock);
+pipe.c:90:      wakeup(&p->nread);
+pipe.c:91:      sleep(&p->nwrite, &p->lock);  //DOC: pipewrite-sleep
+pipe.c:93:    p->data[p->nwrite++ % PIPESIZE] = addr[i];
+pipe.c:95:  wakeup(&p->nread);  //DOC: pipewrite-wakeup1
+pipe.c:96:  release(&p->lock);
+pipe.c:105:  acquire(&p->lock);
+pipe.c:106:  while(p->nread == p->nwrite && p->writeopen){  //DOC: pipe-empty
+pipe.c:108:      release(&p->lock);
+pipe.c:111:    sleep(&p->nread, &p->lock); //DOC: piperead-sleep
+pipe.c:114:    if(p->nread == p->nwrite)
+pipe.c:116:    addr[i] = p->data[p->nread++ % PIPESIZE];
+pipe.c:118:  wakeup(&p->nwrite);  //DOC: piperead-wakeup
+pipe.c:119:  release(&p->lock);
+proc.c:82:    if(p->state == UNUSED)
+proc.c:89:  p->state = EMBRYO;
+proc.c:90:  p->pid = nextpid++;
+proc.c:95:  if((p->kstack = kalloc()) == 0){
+proc.c:96:    p->state = UNUSED;
+proc.c:99:  sp = p->kstack + KSTACKSIZE;
+proc.c:102:  sp -= sizeof *p->tf;
+proc.c:103:  p->tf = (struct trapframe*)sp;
+proc.c:110:  sp -= sizeof *p->context;
+proc.c:111:  p->context = (struct context*)sp;
+proc.c:112:  memset(p->context, 0, sizeof *p->context);
+proc.c:113:  p->context->eip = (uint)forkret;
+proc.c:129:  if((p->pgdir = setupkvm()) == 0)
+proc.c:131:  inituvm(p->pgdir, _binary_initcode_start, (int)_binary_initcode_size);
+proc.c:132:  p->sz = PGSIZE;
+proc.c:133:  memset(p->tf, 0, sizeof(*p->tf));
+proc.c:134:  p->tf->cs = (SEG_UCODE << 3) | DPL_USER;
+proc.c:135:  p->tf->ds = (SEG_UDATA << 3) | DPL_USER;
+proc.c:136:  p->tf->es = p->tf->ds;
+proc.c:137:  p->tf->ss = p->tf->ds;
+proc.c:138:  p->tf->eflags = FL_IF;
+proc.c:139:  p->tf->esp = PGSIZE;
+proc.c:140:  p->tf->eip = 0;  // beginning of initcode.S
+proc.c:142:  safestrcpy(p->name, "initcode", sizeof(p->name));
+proc.c:143:  p->cwd = namei("/");
+proc.c:145:  // this assignment to p->state lets other cores
+proc.c:151:  p->state = RUNNABLE;
+proc.c:193:  if((np->pgdir = copyuvm(curproc->pgdir, curproc->sz)) == 0){
+proc.c:194:    kfree(np->kstack);
+proc.c:195:    np->kstack = 0;
+proc.c:196:    np->state = UNUSED;
+proc.c:199:  np->sz = curproc->sz;
+proc.c:200:  np->parent = curproc;
+proc.c:201:  *np->tf = *curproc->tf;
+proc.c:204:  np->tf->eax = 0;
+proc.c:208:      np->ofile[i] = filedup(curproc->ofile[i]);
+proc.c:209:  np->cwd = idup(curproc->cwd);
+proc.c:211:  safestrcpy(np->name, curproc->name, sizeof(curproc->name));
+proc.c:213:  pid = np->pid;
+proc.c:217:  np->state = RUNNABLE;
+proc.c:257:    if(p->parent == curproc){
+proc.c:258:      p->parent = initproc;
+proc.c:259:      if(p->state == ZOMBIE)
+proc.c:284:      if(p->parent != curproc)
+proc.c:287:      if(p->state == ZOMBIE){
+proc.c:289:        pid = p->pid;
+proc.c:290:        kfree(p->kstack);
+proc.c:291:        p->kstack = 0;
+proc.c:292:        freevm(p->pgdir);
+proc.c:293:        p->pid = 0;
+proc.c:294:        p->parent = 0;
+proc.c:295:        p->name[0] = 0;
+proc.c:296:        p->killed = 0;
+proc.c:297:        p->state = UNUSED;
+proc.c:336:      if(p->state != RUNNABLE)
+proc.c:344:      p->state = RUNNING;
+proc.c:346:      swtch(&(c->scheduler), p->context);
+proc.c:350:      // It should have changed its p->state before coming back.
+proc.c:375:  if(p->state == RUNNING)
+proc.c:380:  swtch(&p->context, mycpu()->scheduler);
+proc.c:429:  // change p->state and then call sched.
+proc.c:439:  p->chan = chan;
+proc.c:440:  p->state = SLEEPING;
+proc.c:445:  p->chan = 0;
+proc.c:463:    if(p->state == SLEEPING && p->chan == chan)
+proc.c:464:      p->state = RUNNABLE;
+proc.c:486:    if(p->pid == pid){
+proc.c:487:      p->killed = 1;
+proc.c:489:      if(p->state == SLEEPING)
+proc.c:490:        p->state = RUNNABLE;
+proc.c:520:    if(p->state == UNUSED)
+proc.c:522:    if(p->state >= 0 && p->state < NELEM(states) && states[p->state])
+proc.c:523:      state = states[p->state];
+proc.c:526:    cprintf("%d %s %s", p->pid, state, p->name);
+proc.c:527:    if(p->state == SLEEPING){
+proc.c:528:      getcallerpcs((uint*)p->context->ebp+2, pc);
+proc.c:544:    if (p->pid == pid){
+proc.c:547:      // cprintf("PGROUNDDOWN: %d", PGROUNDDOWN(p->sz));
+proc.c:548:      safestrcpy(name, p->name, len);
+proc.c:549:      return p->sz;
+sysfile.c:134:  if(ip->type == T_DIR){
+sysfile.c:140:  ip->nlink++;
+sysfile.c:147:  if(dp->dev != ip->dev || dirlink(dp, name, ip->inum) < 0){
+sysfile.c:160:  ip->nlink--;
+sysfile.c:174:  for(off=2*sizeof(de); off<dp->size; off+=sizeof(de)){
+sysfile.c:211:  if(ip->nlink < 1)
+sysfile.c:213:  if(ip->type == T_DIR && !isdirempty(ip)){
+sysfile.c:221:  if(ip->type == T_DIR){
+sysfile.c:222:    dp->nlink--;
+sysfile.c:227:  ip->nlink--;
+sysfile.c:255:    if(type == T_FILE && ip->type == T_FILE)
+sysfile.c:261:  if((ip = ialloc(dp->dev, type)) == 0)
+sysfile.c:265:  ip->major = major;
+sysfile.c:266:  ip->minor = minor;
+sysfile.c:267:  ip->nlink = 1;
+sysfile.c:271:    dp->nlink++;  // for ".."
+sysfile.c:273:    // No ip->nlink++ for ".": avoid cyclic ref count.
+sysfile.c:274:    if(dirlink(ip, ".", ip->inum) < 0 || dirlink(ip, "..", dp->inum) < 0)
+sysfile.c:278:  if(dirlink(dp, name, ip->inum) < 0)
+sysfile.c:311:    if(ip->type == T_DIR && omode != O_RDONLY){
+sysfile.c:385:  if(ip->type != T_DIR){
+umalloc.c:30:  for(p = freep; !(bp > p && bp < p->s.ptr); p = p->s.ptr)
+umalloc.c:31:    if(p >= p->s.ptr && (bp > p || bp < p->s.ptr))
+umalloc.c:33:  if(bp + bp->s.size == p->s.ptr){
+umalloc.c:34:    bp->s.size += p->s.ptr->s.size;
+umalloc.c:35:    bp->s.ptr = p->s.ptr->s.ptr;
+umalloc.c:37:    bp->s.ptr = p->s.ptr;
+umalloc.c:38:  if(p + p->s.size == bp){
+umalloc.c:39:    p->s.size += bp->s.size;
+umalloc.c:40:    p->s.ptr = bp->s.ptr;
+umalloc.c:42:    p->s.ptr = bp;
+umalloc.c:58:  hp->s.size = nu;
+umalloc.c:74:  for(p = prevp->s.ptr; ; prevp = p, p = p->s.ptr){
+umalloc.c:75:    if(p->s.size >= nunits){
+umalloc.c:76:      if(p->s.size == nunits)
+umalloc.c:77:        prevp->s.ptr = p->s.ptr;
+umalloc.c:79:        p->s.size -= nunits;
+umalloc.c:80:        p += p->s.size;
+umalloc.c:81:        p->s.size = nunits;
+usertests.c:16:// does chdir() call iput(p->cwd) in a transaction?
+usertests.c:41:// does exit() call iput(p->cwd) in a transaction?
+vm.c:161:  if(p->kstack == 0)
+vm.c:163:  if(p->pgdir == 0)
+vm.c:171:  mycpu()->ts.esp0 = (uint)p->kstack + KSTACKSIZE;
+vm.c:176:  lcr3(V2P(p->pgdir));  // switch to process's address space
