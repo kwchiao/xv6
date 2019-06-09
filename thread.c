@@ -1,24 +1,35 @@
 #include "types.h"
 #include "stat.h"
 #include "user.h"
+#include "x86.h"
 
 
-// // Mutual exclusion lock.
-// struct thread_spinlock {
-//   uint locked;       // Is the lock held?
-//   // For debugging:
-//   struct cpu *cpu;   // The cpu holding the lock.
-//   uint pcs[10];      // The call stack (an array of program counters) that locked the lock.
-// } lock;
+// Mutual exclusion lock.
+struct thread_spinlock {
+  uint locked;       // Is the lock held?
+  // For debugging:
+  struct cpu *cpu;   // The cpu holding the lock.
+  uint pcs[10];      // The call stack (an array of program counters) that locked the lock.
+} lock;
 
-// void thread_spin_init(struct thread_spinlock *lk){
-//   lk->locked = 0;
-//   lk->cpu = 0;
-// }
+void thread_spin_init(struct thread_spinlock *lk){
+  lk->locked = 0;
+  lk->cpu = 0;
+}
 
-// void thread_spin_lock(struct thread_spinlock *lk){
+void thread_spin_lock(struct thread_spinlock *lk){
+  while(xchg(&lk->locked, 1) != 0);
+  __sync_synchronize();
+}
 
-// }
+void thread_spin_unlock(struct thread_spinlock *lk){
+  lk->pcs[0] = 0;
+  lk->cpu = 0;
+
+  __sync_synchronize();
+
+  lk->locked = 0;
+}
 
 struct balance {
     char name[32];
@@ -44,11 +55,11 @@ void do_work(void *arg){
     printf(1, "Starting do_work: s:%s\n", b->name);
 
     for (i = 0; i < b->amount; i++) { 
-         //thread_spin_lock(&lock);
+         thread_spin_lock(&lock);
          old = total_balance;
          delay(100000);
          total_balance = old + 1;
-         //thread_spin_unlock(&lock);
+         thread_spin_unlock(&lock);
     }
   
     printf(1, "Done s:%s\n", b->name);
