@@ -114,3 +114,32 @@ sys_getmeminfo(void)
 
   return getprocmem(pid, name, len);
 }
+
+int
+sys_thread_create(void)
+{
+  char* fcn;
+	char* arg;
+	char* stack;
+	
+	if (argptr(0, &fcn, 4) < 0)
+		return -1;
+	if (argptr(1, &arg, 4) < 0)
+		return -1;
+	if (argptr(2, &stack, 4) < 0)
+		return -1;
+		
+  return thread_create((void (*)(void *))fcn, arg, stack);
+}
+
+int
+sys_thread_join(void)
+{
+  return thread_join();
+}
+
+void
+sys_thread_exit(void)
+{
+  thread_exit();
+}
